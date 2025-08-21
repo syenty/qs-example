@@ -1,0 +1,20 @@
+{
+  "name": "qs-server",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bull-board/api": "^6.12.1",
+    "@bull-board/express": "^6.12.1",
+    "@bull-board/ui": "^6.12.1",
+    "bullmq": "^5.8.2",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1"
+  }
+}

@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  # Redis 컨테이너
+  redis:
+    image: "redis:7-alpine"
+    ports:
+      # 로컬에서 RedisInsight 같은 툴로 직접 접속하려면 주석 해제
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  # Producer 서비스 (실제로는 API 서버의 일부가 될 것입니다)
+  producer:
+    build: .
+    command: "node producer.js"
+    ports:
+      - "4000:4000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  # Worker 서비스
+  worker:
+    build: .
+    command: "node worker.js"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  # Dashboard 서비스
+  dashboard:
+    build: .
+    command: "node dashboard.js"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+volumes:
+  redis-data:
