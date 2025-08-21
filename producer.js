@@ -36,8 +36,38 @@ app.post("/jobs", async (req, res) => {
   }
 });
 
+// 작업 상태별 목록 조회 API 엔드포인트
+app.get("/jobs", async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    if (!status) {
+      return res.status(400).json({ error: "Query parameter 'status' is required." });
+    }
+
+    const jobStatuses = status.split(",").map((s) => s.trim());
+    const validStatuses = ["completed", "waiting", "active", "delayed", "failed", "paused"];
+
+    const allJobs = [];
+    for (const jobStatus of jobStatuses) {
+      const jobs = await emailQueue.getJobs([jobStatus]);
+      jobs.forEach((job) => {
+        allJobs.push({ ...job.toJSON(), status: jobStatus });
+      });
+    }
+
+    res.status(200).json(allJobs);
+  } catch (error) {
+    console.error("[Producer] Error getting jobs:", error);
+    res.status(500).json({ error: "Failed to get jobs from the queue." });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`[Producer] API server listening on port ${PORT}`);
   console.log(`[Producer] Send a POST request to http://localhost:${PORT}/jobs to add a job.`);
+  console.log(
+    `[Producer] Send a GET request to http://localhost:${PORT}/jobs?status=<status> to view jobs.`
+  );
 });
