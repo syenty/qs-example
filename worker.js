@@ -19,7 +19,7 @@ const worker = new Worker(
     console.log(`[Worker] Data:`, job.data);
 
     // 실제 이메일 발송 로직이 들어갈 부분
-    // 여기서는 2초간의 딜레이로 시뮬레이션
+    // 여기서는 5초간의 딜레이로 시뮬레이션
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // 작업이 성공적으로 완료되었음을 반환
