@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Queue Dashboard</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+          sans-serif;
+        margin: 2em;
+        background-color: #f4f4f9;
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+        color: #444;
+        margin-bottom: 1.5em;
+      }
+      #dashboard-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 2em;
+        align-items: flex-start; /* Align columns to the top */
+      }
+      .column-with-button {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .status-column {
+        background-color: #e9eaf2;
+        padding: 1em;
+        border-radius: 8px;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+      }
+      .status-column h2 {
+        margin-top: 0;
+        text-align: center;
+        border-bottom: 2px solid #ccc;
+        padding-bottom: 0.5em;
+        color: #444;
+      }
+      .job-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 1em;
+        align-content: flex-start;
+        flex-grow: 1;
+      }
+      .job-box {
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px 15px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        font-family: monospace;
+        font-size: 0.9em;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .job-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .job-list p {
+        color: #888;
+        width: 100%;
+        text-align: center;
+        margin-top: 2em;
+      }
+      /* Common style for all buttons at the bottom of columns */
+      .action-button {
+        margin-top: 1em; /* Pushes button down from the list */
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        font-size: 1em;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        flex-shrink: 0; /* Prevent button from shrinking */
+      }
+      .add-job-button {
+        background-color: #007bff;
+        color: white;
+      }
+      .add-job-button:hover:not(:disabled) {
+        background-color: #0056b3;
+      }
+      .clear-btn {
+        background-color: #6c757d;
+        color: white;
+      }
+      .clear-btn:hover:not(:disabled) {
+        background-color: #5a6268;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Job Queue Dashboard</h1>
+
+    <div id="dashboard-container">
+      <div class="column-with-button">
+        <div class="status-column">
+          <h2>Waiting</h2>
+          <div id="waiting-jobs" class="job-list"></div>
+        </div>
+        <button id="add-job-btn" class="action-button add-job-button">Add Job</button>
+      </div>
+      <div class="column-with-button">
+        <div class="status-column">
+          <h2>Active</h2>
+          <div id="active-jobs" class="job-list"></div>
+        </div>
+        <button class="action-button clear-btn" data-status="active">Clear</button>
+      </div>
+      <div class="column-with-button">
+        <div class="status-column">
+          <h2>Completed</h2>
+          <div id="completed-jobs" class="job-list"></div>
+        </div>
+        <button class="action-button clear-btn" data-status="completed">Clear</button>
+      </div>
+    </div>
+
+    <script>
+      const jobContainers = {
+        active: document.getElementById("active-jobs"),
+        waiting: document.getElementById("waiting-jobs"),
+        completed: document.getElementById("completed-jobs"),
+      };
+      const addJobButton = document.getElementById("add-job-btn");
+      const clearButtons = document.querySelectorAll(".clear-btn");
+      let jobCounter = 1;
+
+      async function fetchAndRenderJobs() {
+        try {
+          const statusesToFetch = "active,waiting,completed";
+          const response = await fetch(`/jobs?status=${statusesToFetch}`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const allJobs = await response.json();
+
+          // Group jobs by status
+          const jobsByStatus = {
+            active: [],
+            waiting: [],
+            completed: [],
+          };
+
+          allJobs.forEach((job) => {
+            if (jobsByStatus[job.status]) {
+              jobsByStatus[job.status].push(job);
+            }
+          });
+
+          // Render jobs in each column
+          for (const status in jobContainers) {
+            const container = jobContainers[status];
+            const jobs = jobsByStatus[status];
+
+            container.innerHTML = ""; // Clear previous content
+
+            if (jobs.length === 0) {
+              container.innerHTML = `<p>No jobs</p>`;
+            } else {
+              jobs.forEach((job) => {
+                const jobBox = document.createElement("div");
+                jobBox.className = "job-box";
+                jobBox.textContent = job.id;
+                // Add a tooltip with more details
+                jobBox.title = `Name: ${job.name}\nData: ${JSON.stringify(job.data, null, 2)}`;
+                container.appendChild(jobBox);
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching jobs:", error);
+          // Display an error message in all columns
+          for (const status in jobContainers) {
+            jobContainers[status].innerHTML = `<p style="color: red;">Failed to load jobs.</p>`;
+          }
+        }
+      }
+
+      async function addJob() {
+        // 여러 번 클릭되는 것을 방지하기 위해 버튼을 비활성화합니다.
+        addJobButton.disabled = true;
+        addJobButton.textContent = "Adding...";
+
+        try {
+          const jobName = "send-email";
+          const jobData = {
+            email: `user${jobCounter}@example.com`,
+            subject: `Welcome email #${jobCounter}`,
+          };
+
+          const response = await fetch("/jobs", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: jobName, data: jobData }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+          }
+
+          console.log(`Job ${jobCounter} added successfully.`);
+          jobCounter++;
+
+          // 새 작업이 바로 보이도록 목록을 즉시 갱신합니다.
+          await fetchAndRenderJobs();
+        } catch (error) {
+          console.error("Error adding job:", error);
+          alert(`Failed to add job: ${error.message}`);
+        } finally {
+          // 작업이 끝나면 버튼을 다시 활성화합니다.
+          addJobButton.disabled = false;
+          addJobButton.textContent = "Add Job";
+        }
+      }
+
+      async function clearJobs(status) {
+        const button = document.querySelector(`.clear-btn[data-status="${status}"]`);
+        if (!button) return;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = "Clearing...";
+
+        try {
+          const response = await fetch(`/jobs?status=${status}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+          }
+
+          console.log(`Jobs with status '${status}' cleared.`);
+          await fetchAndRenderJobs(); // Refresh the view
+        } catch (error) {
+          console.error(`Error clearing ${status} jobs:`, error);
+          alert(`Failed to clear jobs: ${error.message}`);
+        } finally {
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+      }
+
+      addJobButton.addEventListener("click", addJob);
+
+      // Add event listeners for each clear button
+      clearButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+          const status = event.target.dataset.status;
+          if (status) {
+            if (
+              confirm(`Are you sure you want to clear all '${status}' jobs? This cannot be undone.`)
+            ) {
+              clearJobs(status);
+            }
+          }
+        });
+      });
+
+      // Initial fetch and then set interval to refresh every 2 seconds
+      fetchAndRenderJobs();
+      setInterval(fetchAndRenderJobs, 2000);
+    </script>
+  </body>
+</html>
